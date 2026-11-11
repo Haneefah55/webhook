@@ -24,7 +24,7 @@ export class IngressController {
   async handleIncomingWebhook(
     @Param('appId') appId: string, 
     @Req() req: Request & { body: any }) {
-    // 1. Verify app exists
+    
     const app = await this.appModel.findById(appId);
     if (!app) {
       throw new NotFoundException('Application target not found');
@@ -32,7 +32,6 @@ export class IngressController {
 
     const event = req.body;
 
-    // 2. Push raw event to RabbitMQ for asynchronous processing & fan-out
     this.rabbitClient.emit('event.ingested', {
       appId,
       eventId: event.id || `evt_${Date.now()}`,
