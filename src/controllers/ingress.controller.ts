@@ -1,7 +1,7 @@
 import { Controller, Post, Param, Req, UseGuards, HttpCode, HttpStatus, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { WebhookApp } from './schema/client.schema';
+import { WebhookApp } from '../schema/client.schema';
 import { ClientProxy, ClientProxyFactory, Transport } from '@nestjs/microservices';
 
 @Controller('v1/ingress')

@@ -2,8 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Ctx, EventPattern, Payload, RmqContext } from '@nestjs/microservices';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { WebhookSubscription } from './schema/sub.schema';
-import { WebhookDelivery } from './schema/delivery.schema';
+import { WebhookSubscription } from '../schema/sub.schema';
+import { WebhookDelivery } from '../schema/delivery.schema';
 import { HttpService } from '@nestjs/axios';
 import * as crypto from 'crypto';
 import { firstValueFrom } from 'rxjs';
@@ -28,7 +28,7 @@ export class WaaSDispatcherService {
     const originalMessage = context.getMessage();
     const { appId, eventId, eventType, payload } = data;
 
-    //Find all client subscriptions matching this app and event type
+    
   
 const subscriptions = await this.subModel.find({
   appId: new Types.ObjectId(appId) as any,
@@ -36,7 +36,7 @@ const subscriptions = await this.subModel.find({
 });
 
 for (const sub of subscriptions) {
-  // Cast sub explicitly or use sub.toObject()._id if TypeScript complains about _id
+  
   const subId = (sub as any)._id; 
 
   const deliveryRecord = await this.deliveryModel.create({
@@ -51,7 +51,7 @@ for (const sub of subscriptions) {
   await this.dispatchToClient(sub, deliveryRecord);
 }
 
-    // 2. Fan-out: Create a delivery 
+  
 
     channel.ack(originalMessage);
   }
@@ -74,7 +74,7 @@ for (const sub of subscriptions) {
         }),
       );
 
-      // Success
+      
       await this.deliveryModel.findByIdAndUpdate(delivery._id, {
         status: 'SUCCESS',
         attempts: attemptNumber,
@@ -99,7 +99,7 @@ for (const sub of subscriptions) {
       delivery.status = 'FAILED';
       await delivery.save();
       
-      // Exponential backoff logic would trigger a delayed retry here via Redis/RabbitMQ TTL
+      
       this.logger.error(`Delivery ${delivery._id} failed (Attempt ${attemptNumber}). Scheduled for backoff retry.`);
     }
   }
