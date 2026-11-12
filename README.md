@@ -1,132 +1,158 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+```markdown
+# 🪝 HookBridge / WaaS Gateway
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+> A production-ready, resilient, two-sided Webhook-as-a-Service (WaaS) platform built with **NestJS**, **TypeScript**, **MongoDB**, **RabbitMQ**, and **Redis**. 
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+HookBridge acts as a robust middle-layer infrastructure: it securely ingests incoming events from third-party providers (e.g., Paystack, Resend, GitHub) on behalf of your users, matches and fans out those events, and reliably dispatches them as signed, retryable outgoing webhooks to your clients' endpoints.
 
-## Description
+---
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## 🚀 Key Features
 
-## Project setup
+### 📥 1. Inbound Webhook Ingestion
+- **Raw Body Capture:** Securely preserves byte-level payloads for cryptographic signature verification.
+- **Fail-Fast Security Guards:** Validates provider signatures (HMAC SHA-512/256) instantly.
+- **Zero-Timeout Architecture:** Immediately acknowledges requests with `200 OK` and offloads heavy processing to **RabbitMQ**.
+- **Idempotency Engine:** Tracks unique event IDs in MongoDB to completely eliminate duplicate processing from provider retry storms.
 
+### 📤 2. Outbound Webhook Delivery
+- **Multi-Tenant Subscriptions:** Manage apps, client endpoint URLs, and event-type routing maps.
+- **Event Fan-Out:** Automatically routes single incoming events to multiple target subscriptions.
+- **HMAC SHA-256 Signing:** Signs outgoing payloads with client-specific secrets (`X-WaaS-Signature`).
+- **Resilient Retries & Backoff:** Automatically handles failures with an **exponential backoff** strategy.
+- **Dead-Letter Queue (DLQ):** Permanently failed jobs are moved to a DLQ for investigation.
+- **Inspection & Manual Control:** Full delivery attempt logging in MongoDB with support for **manual replays/retries**.
+
+---
+
+## 🛠️ Tech Stack
+
+* **Framework:** [NestJS](https://nestjs.com/) (Node.js framework using TypeScript)
+* **Database:** [MongoDB (Mongoose)](https://www.mongodb.com/) for app profiles, subscriptions, and immutable delivery logs.
+* **Message Broker:** [RabbitMQ](https://www.rabbitmq.com/) for asynchronous ingestion pipelines and dispatch queues.
+* **Cache / State:** [Redis](https://redis.io/) for rate limiting and backoff management.
+
+---
+
+## 🏗️ Architecture Flow
+
+```text
+[Third-Party Providers] 
+         │ (Incoming Webhook POST)
+         ▼
+[Ingress Gateway] ──► [Signature Check & Idempotency Lock]
+         │
+         ▼
+[RabbitMQ: Ingress Queue]
+         │
+         ▼
+[Event Fan-Out Engine] ──► [Matches Client Subscriptions]
+         │
+         ▼
+[RabbitMQ: Outgress Dispatch Queue]
+         │
+         ▼
+[Outgoing Delivery Worker] 
+   ├─ HMAC SHA-256 Payload Signing
+   ├─ HTTP Dispatch + Exponential Backoff Retries
+   └─ Fallback to Dead-Letter Queue (DLQ)
+
+```
+## ⚙️ Getting Started
+### Prerequisites
+Make sure you have the following installed on your local machine:
+ * Node.js (v18+ recommended)
+ * Docker & Docker Compose (for running MongoDB, RabbitMQ, and Redis quickly)
+### 1. Clone the Repository
 ```bash
-$ npm install
+git clone [https://github.com/your-username/hook-bridge.git](https://github.com/your-username/hook-bridge.git)
+cd hook-bridge
+
+```
+### 2. Environment Setup
+Create a .env file in the root directory based on .env.example:
+```env
+PORT=3000
+MONGODB_URI=mongodb://localhost:27017/waas_platform
+RABBITMQ_URL=amqp://localhost:5672
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+```
+### 3. Spin Up Infrastructure via Docker Compose
+Create a docker-compose.yml file if you don't have local instances running:
+```yaml
+version: '3.8'
+services:
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+```
+Run the containers:
+```bash
+docker compose up -d
+
+```
+### 4. Run the Application
+```bash
+# Install dependencies
+npm install
+
+# Start development mode
+npm run dev
+
+```
+## 🔌 API Endpoints Reference
+### 1. Register a Client App
+ * **POST** /v1/apps
+ * **Body:**
+   ```json
+   {
+     "name": "Acme Corp"
+   }
+   
+   ```
+### 2. Register an Outgoing Webhook Endpoint (Subscription)
+ * **POST** /v1/subscriptions
+ * **Body:**
+   ```json
+   {
+     "appId": "65f1a2bdhe73c3d",
+     "url": "[https://client-api.com/webhooks/incoming](https://client-api.com/webhooks/incoming)",
+     "eventTypes": ["paystack.charge.success"],
+     "secret": "whsec_client_secret_xyz"
+   }
+   
+   ```
+### 3. Ingest Incoming Webhooks (Target for Third-Party Providers)
+ * **POST** /v1/ingress/:appId
+ * Automatically validates headers, drops events into RabbitMQ, and triggers client dispatches asynchronously.
+### 4. Inspect Delivery History
+ * **GET** /v1/deliveries/:id
+ * Returns status, attempts count, history logs, error messages, and response bodies.
+### 5. Manual Retry
+ * **POST** /v1/deliveries/:id/retry
+ * Resets attempt counters, clears failure locks, and re-queues the payload for immediate dispatch.
+## 🤝 Contributing
+Contributions are welcome! Feel free to open issues, submit pull requests, or suggest architectural improvements.
+ 1. Fork the Project
+ 2. Create your Feature Branch (git checkout -b feature/AmazingFeature)
+ 3. Commit your Changes (git commit -m 'Add some AmazingFeature')
+ 4. Push to the Branch (git push origin feature/AmazingFeature)
+ 5. Open a Pull Request
+## 📝 License
+Distributed under the **MIT License**. See LICENSE for more information.
 ```
 
-## Compile and run the project
-
-```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
 ```
-
-## Run tests
-
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Observability
-
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
-
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
-
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
-
-To add it to this project, run this and approve the code it prints at [observe.nestjs.com/link](https://observe.nestjs.com/link) - signing up for free if you have no account:
-
-```bash
-$ npx @nestjs/observe link
-```
-
-It installs `@nestjs/observe`, wires it into `AppModule` and `main.ts`, and writes the app key and secret into `.env`, which every `nest start` script (`start`, `start:dev`, `start:debug`) then loads. In production, set `OBSERVE_APP_KEY` and `OBSERVE_APP_SECRET` in the environment instead.
-
-Or do it by hand:
-
-```bash
-$ npm install @nestjs/observe
-```
-
-Then follow the [setup guide](https://docs.nestjs.com/observability/sdk) - it takes a single import and an app key.
-
-The free plan needs no payment details and covers 300,000 events a month. You can also browse the [live demo](https://www.observe-demo.nestjs.com/dashboard) first - the whole dashboard over a busy service's data, with nothing to install.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observe](https://observe.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).

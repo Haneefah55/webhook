@@ -4,6 +4,8 @@ import { HttpModule } from '@nestjs/axios';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtAuthGuard } from './guards/auth.guard'
 import { IngressController } from './controllers/ingress.controller';
+import { AppsController } from './controllers/apps.controller';
+import { DeliveriesController } from './controllers/delivery.controller';
 import { WaaSDispatcherService } from './services/dispatcher.service';
 import { WebhookApp, WebhookAppSchema } from './schema/client.schema';
 import { WebhookSubscription, WebhookSubscriptionSchema } from './schema/sub.schema';
@@ -49,7 +51,12 @@ import { APP_GUARD } from '@nestjs/core';
     MongooseModule.forFeature([{ name: WebhookSubscription.name, schema: WebhookSubscriptionSchema }]),
     MongooseModule.forFeature([{ name: WebhookDelivery.name, schema: WebhookDeliverySchema }]),
   ],
-  controllers: [IngressController],
+  controllers: [
+    IngressController,
+    AppsController,
+    DeliveriesController
+    
+  ],
   providers: [
     WaaSDispatcherService,
     {

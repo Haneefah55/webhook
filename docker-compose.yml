@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  # NestJS WaaS Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: waas_app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - MONGODB_URI=mongodb://mongodb:27017/waas_platform
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_URI=amqp://admin:adminpassword@rabbitmq:5672
+      - JWT_SECRET=super_secret_jwt_key
+    depends_on:
+      - mongodb
+      - redis
+      - rabbitmq
+    networks:
+      - waas-network
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:latest
+    container_name: waas_mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - waas-network
+
+  # Redis Cache & Job State Manager
+  redis:
+    image: redis:alpine
+    container_name: waas_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - waas-network
+
+  # RabbitMQ Message Broker (with Management UI)
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: waas_rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"   # AMQP protocol port for NestJS
+      - "15672:15672" # RabbitMQ Management Web Dashboard
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=adminpassword
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - waas-network
+
+volumes:
+  mongo_data:
+  redis_data:
+  rabbitmq_data:
+
+networks:
+  waas-network:
+    driver: bridge
